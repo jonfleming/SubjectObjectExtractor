@@ -1,15 +1,15 @@
 import unittest
 import spacy
+from spacy.tokens import Doc
 from SubjectObjectExtractor import SubjectObjectExtractor
 
 nlp = spacy.load("en_core_web_md")
+pipeline_component = SubjectObjectExtractor(nlp)
+Doc.set_extension('svos', default=None)
+nlp.add_pipe(pipeline_component, last=True)
 
 class TestSVOs(unittest.TestCase):
-
-    def test_svos_conjuction(self):
-        pipeline_component = SubjectObjectExtractor(nlp)
-        nlp.add_pipe(pipeline_component, last=True)
-        
+    def test_svos_conjuction(self):        
         doc = nlp("making $12 an hour? where am i going to go? i have no other financial assistance available and he certainly won't provide support.")
         self.assertEqual(set(doc._.svos), {('i', '!have', 'assistance'), ('he', '!provide', 'support')})
         
@@ -38,12 +38,12 @@ class TestSVOs(unittest.TestCase):
         assert set(doc._.svos) == {('he', 'told', 'me')}
 
     def test_svos_want(self):
-        doc = nlp("I wanted to kill him with a hammer.") 
-        assert set(doc._.svos) == {('i', 'wanted', 'him')} # expected: i, wanted, to kill him
+        doc = nlp("I wanted to kill him with a hammer.")
+        assert set(doc._.svos) == {('i', 'wanted', 'to kill him')} 
 
     def test_svos(self):
         doc = nlp("because he hit me and also made me so angry i wanted to kill him with a hammer.")
-        assert set(doc._.svos) == {('he', 'hit', 'me'), ('i', 'kill', 'him')}
+        assert set(doc._.svos) == {('he', 'hit', 'me'), ('i', 'wanted','to kill him')}
 
     def test_svos_conjunction_distribution(self):
         doc = nlp("he and his brother shot me")
@@ -83,7 +83,7 @@ class TestSVOs(unittest.TestCase):
 
     def test_svos_verb_conjunction(self):        
         doc = nlp("he beat and hurt me")
-        assert set(doc._.svos) == {('he', '!spit', 'me'), ('he', '!spit', 'child')}
+        assert set(doc._.svos) == {('he', 'beat', 'me'), ('he', 'hurt', 'me')}
 
 if __name__ == '__main__':
     unittest.main()
