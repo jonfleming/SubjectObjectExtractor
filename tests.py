@@ -35,7 +35,7 @@ class TestSVOs(unittest.TestCase):
 
     def test_svos_noun_phrase(self):
         doc = nlp("he told me i would die alone with nothing but my career someday")
-        assert set(doc._.svos) == {('he', 'told', 'me')}
+        assert set(doc._.svos) == {('he', 'told', 'me'), ('i', 'die', 'alone')}
 
     def test_svos_want(self):
         doc = nlp("I wanted to kill him with a hammer.")
@@ -84,6 +84,11 @@ class TestSVOs(unittest.TestCase):
     def test_svos_verb_conjunction(self):        
         doc = nlp("he beat and hurt me")
         assert set(doc._.svos) == {('he', 'beat', 'me'), ('he', 'hurt', 'me')}
+
+    def test_svos_aux(self):
+        pipeline_component.aux_adj_as_object = True
+        doc = nlp('The car is red.')
+        assert set(doc._.svos) == {('car','is','red')}
 
 if __name__ == '__main__':
     unittest.main()

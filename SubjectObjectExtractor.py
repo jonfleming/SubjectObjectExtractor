@@ -5,6 +5,8 @@ SUBJECTS = ['nsubj', 'nsubjpass', 'csubj', 'csubjpass', 'agent', 'expl']
 OBJECTS = ['dobj', 'dative', 'attr', 'oprd']
 
 class SubjectObjectExtractor(object):
+    aux_adj_as_object = False
+
     def __init__(self, nlp):
         self.nlp = nlp
 
@@ -80,7 +82,6 @@ class SubjectObjectExtractor(object):
                             return verb, objects
         return None, None
 
-# I wanted to kill him with a hammer -> i, wanted, to kill him
     def get_object_phrase_from_xcomp(self, dependencies):
         for dependency in dependencies:
             if dependency.pos_ == 'VERB' and dependency.dep_ == 'xcomp':
@@ -128,6 +129,8 @@ class SubjectObjectExtractor(object):
             objects.extend(new_object)
         if len(objects) > 0 and new_object is None:
             objects.extend(self.get_nouns_from_conjunctions(objects, OBJECTS))
+        if self.aux_adj_as_object and not objects:
+            objects = [token for token in verb.rights if token.pos_ in ['ADJ']]
         return verb, objects
 
     def find_svs(self, doc):
@@ -142,7 +145,8 @@ class SubjectObjectExtractor(object):
 
     def find_svos(self, doc):
         svos = []
-        verbs = [token for token in doc if token.pos_  in ['VERB', 'AUX'] and token.dep_ != 'xcomp' ]
+        verbs = [token for token in doc if token.pos_  in ['VERB','AUX'] and token.dep_ != 'xcomp' ]
+
         for verb in verbs:
             subjects, verbNegated = self.get_all_subjects(verb)
             if len(subjects) > 0:
