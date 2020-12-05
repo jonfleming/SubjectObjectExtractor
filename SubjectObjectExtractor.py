@@ -2,10 +2,10 @@ import spacy
 from spacy.tokens import Doc
 
 SUBJECTS = ['nsubj', 'nsubjpass', 'csubj', 'csubjpass', 'agent', 'expl']
-OBJECTS = ['dobj', 'dative', 'attr', 'oprd']
+OBJECTS = ['dobj', 'dative', 'attr', 'oprd', 'pobj']
 
 class SubjectObjectExtractor(object):
-    aux_adj_as_object = False
+    adj_as_object = False
 
     def __init__(self, nlp):
         self.nlp = nlp
@@ -14,6 +14,11 @@ class SubjectObjectExtractor(object):
         doc._.svos = self.find_svos(doc)
         return doc
 
+    def first(self, list):
+        if len(list) > 0:
+            return list[0]
+        else:
+            return None
 
     def get_nouns_from_conjunctions(self, nouns, labels):
         more_nouns = []
@@ -21,9 +26,13 @@ class SubjectObjectExtractor(object):
             right_dependencies = list(noun.rights)
             right_children = {child.lower_ for child in right_dependencies}
             if 'and' in right_children:
-                more_nouns.extend([child for child in right_dependencies if child.dep_ in labels or child.pos_ == 'NOUN'])
-                if len(more_nouns) > 0:
-                    more_nouns.extend(self.get_nouns_from_conjunctions(more_nouns, labels))
+                dependency = self.first([child for child in right_dependencies if child.dep_ in labels or child.pos_ == 'NOUN'])
+                if hasattr(noun, 'preposition'):
+                    phrase = Phrase(noun.preposition.text + ' ' + dependency.text)
+                else:
+                    phrase = PossPhrase(dependency)
+                
+                more_nouns.extend([phrase])
         return more_nouns
 
     def get_objects_from_conjunctive_verb(self, verbs):
@@ -31,9 +40,9 @@ class SubjectObjectExtractor(object):
         for verb in verbs:
             right_children = {child.lower_ for child in verb.rights}
             if 'and' in right_children:
-                new_verbs = [child for child in verb.rights if child.pos_ == 'VERB']
+                new_verbs = self.first([child for child in verb.rights if child.pos_ == 'VERB'])
                 if new_verbs is not None:
-                    _, obj = self.get_all_objects(new_verbs[0])
+                    obj = self.get_all_objects(new_verbs)
                     objects.extend(obj)
         return objects
 
@@ -44,9 +53,9 @@ class SubjectObjectExtractor(object):
         if head.pos_ == 'VERB':
             subs = [child for child in head.lefts if child.dep_ in SUBJECTS]
             if len(subs) > 0:
-                verbNegated = self.is_negated(head)
+                verb_negated = self.is_negated(head)
                 subs.extend(self.get_nouns_from_conjunctions(subs, SUBJECTS))
-                return subs, verbNegated
+                return subs, verb_negated
             elif head.head != head:
                 return self.find_subjects(head)
         elif head.pos_ == 'NOUN':
@@ -66,7 +75,10 @@ class SubjectObjectExtractor(object):
         objects = []
         for dependency in dependencies:
             if dependency.pos_ == 'ADP' and dependency.dep_ == 'prep':
-                objects.extend([token for token in dependency.rights if token.dep_  in OBJECTS or (token.pos_ == 'PRON' and token.lower_ == 'me')])
+                pobj = self.first([token for token in dependency.rights if token.dep_  in OBJECTS or (token.pos_ == 'PRON' and token.lower_ == 'me')])
+                if pobj is not None:
+                    obj = PrepPhrase(dependency, pobj)
+                    objects.extend([obj])
         return objects
 
     def get_objects_from_attributess(self, dependencies):
@@ -93,7 +105,7 @@ class SubjectObjectExtractor(object):
 
                 if len(subjects) > 0 and len(objects) > 0:                    
                     text = ''.join(subjects) + ' ' + verb.text + ' ' + ''.join(objects)
-                    obj = _Token(text)
+                    obj = Phrase(text)
                     return [obj]
         return None
 
@@ -109,19 +121,23 @@ class SubjectObjectExtractor(object):
         return None, None
 
     def get_all_subjects(self, verb):
-        verbNegated = self.is_negated(verb)
+        verb_negated = self.is_negated(verb)
         subjects = [token for token in verb.lefts if token.dep_ in SUBJECTS and token.pos_ != 'DET']
         if len(subjects) > 0:
             subjects.extend(self.get_nouns_from_conjunctions(subjects, SUBJECTS))
         else:
-            foundSubs, verbNegated = self.find_subjects(verb)
+            foundSubs, verb_negated = self.find_subjects(verb)
             subjects.extend(foundSubs)
-        return subjects, verbNegated
+        return subjects, verb_negated
 
 
     def get_all_objects(self, verb):
         right_children = list(verb.rights)
         objects = [token for token in right_children if token.dep_ in OBJECTS]
+        if self.adj_as_object:
+            adjectives = [token for token in verb.rights if token.pos_ in ['ADJ']]
+            objects.extend(adjectives)
+
         objects.extend(self.get_objects_from_prepositions(right_children))
         new_object = self.get_object_phrase_from_xcomp(right_children)
 
@@ -129,47 +145,77 @@ class SubjectObjectExtractor(object):
             objects.extend(new_object)
         if len(objects) > 0 and new_object is None:
             objects.extend(self.get_nouns_from_conjunctions(objects, OBJECTS))
-        if self.aux_adj_as_object and not objects:
-            objects = [token for token in verb.rights if token.pos_ in ['ADJ']]
-        return verb, objects
+
+        return objects
+
+    def get_predicate(self, verb, negated):
+        aux = self.first([token for token in verb.lefts if token.dep_ in ['aux','auxpass']])
+        predicate = 'not ' + verb.lower_ if negated else verb.lower_
+        if aux is not None:
+            predicate = aux.lower_ + ' ' + predicate if aux else predicate
+        return predicate
 
     def find_svs(self, doc):
-        subjects = []
+        svs = []
         verbs = [token for token in doc if token.pos_  in ['VERB', 'AUX']]
         for verb in verbs:
-            subjects, verbNegated = self.get_all_subjects(verb)
+            subjects, verb_negated = self.get_all_subjects(verb)
             if len(subjects) > 0:
                 for subject in subjects:
-                    subjects.append((subject.orth_, '!' + verb.orth_ if verbNegated else verb.orth_))
-        return subjects
+                    predicate = self.get_predicate(verb, verb_negated)
+                    svs.append((subject.lower_, predicate))
+        return svs
 
     def find_svos(self, doc):
         svos = []
         verbs = [token for token in doc if token.pos_  in ['VERB','AUX'] and token.dep_ != 'xcomp' ]
 
         for verb in verbs:
-            subjects, verbNegated = self.get_all_subjects(verb)
+            subjects, verb_negated = self.get_all_subjects(verb)
             if len(subjects) > 0:
-                new_verb, objects = self.get_all_objects(verb)
+                objects = self.get_all_objects(verb)
                 if not objects:
                     conjunctive_verbs = [verb] + [token for token in verb.rights if token.pos_ == 'VERB']
                     objects = self.get_objects_from_conjunctive_verb(conjunctive_verbs)
                 
                 for subject in subjects:
                     for obj in objects:
-                        objNegated = self.is_negated(obj)
-                        svos.append((subject.lower_, '!' + verb.lower_ if verbNegated or objNegated else verb.lower_, obj.lower_))
+                        obj_negated = self.is_negated(obj)
+                        predicate = self.get_predicate(verb, verb_negated or obj_negated)
+                        svos.append((subject.lower_, predicate, obj.lower_))
         return svos
 
     def printDeps(self, doc):
         for token in doc:
-            print(token.orth_, token.dep_, token.pos_, token.head.orth_, 
-                [left_child.orth_ for left_child in token.lefts], 
-                [right_child.orth_ for right_child in token.rights])
-
-class _Token(object):
+            print(token.text, token.dep_, token.pos_, token.head.text, 
+                [left_child.text for left_child in token.lefts], 
+                [right_child.text for right_child in token.rights])
+class Phrase(object):
     def __init__(self, text):
         self.text = text
-        self.lower_ = text.lower()
+        self.lower_ = self.text.lower()
         self.children = []
+        self.lefts = []
+        self.rights = []
+class PrepPhrase(object):
+    def __init__(self, preposition, pobj):
+        self.preposition = preposition
+        self.text = preposition.text + ' ' + pobj.text
+        self.lower_ = self.text.lower()
+        self.children = []
+        self.lefts = []
+        self.rights = pobj.rights
 
+class PossPhrase(object):
+    def __init__(self, noun):
+        lefts = [token for token in noun.lefts if token.dep_ == 'poss']
+        if lefts:
+            self.posessive = lefts[0]
+            self.text = self.posessive.text + ' ' + noun.text
+        else:
+            self.text = noun.text
+
+        self.lower_ = self.text.lower()
+        self.children = []
+        self.lefts = noun.lefts
+        self.rights = noun.rights
