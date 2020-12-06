@@ -8,11 +8,12 @@ pipeline_component.adj_as_object = True
 Doc.set_extension('svos', default=None)
 nlp.add_pipe(pipeline_component, last=True)
 
-file = open('text3.txt', 'r')
+file = open('test_text.txt', 'r')
 i = 1
 for line in file:
-    doc = nlp(line)
-    print(i, doc)
+    print(i, line, end='')
+    if not line.startswith('#'):
+        doc = nlp(line)
+        for svo in doc._.svos:
+            print('    ', svo)
     i += 1
-    for svo in doc._.svos:
-        print('    ', svo)

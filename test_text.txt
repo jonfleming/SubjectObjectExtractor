@@ -1,3 +1,4 @@
+# Only return svos that answer Who and What.
 Clinton defeated Dole.
 Dole was defeated by Clinton.
 The car is red.
@@ -5,8 +6,7 @@ Sue is a true patriot.
 We are in the barn.
 There is a ghost in the room.
 These links present the many viewpoints that existed.
-She was chosen.
-They chose here.
+They chose her.
 It is built.
 It is sweet.
 Sam likes Sally.
@@ -24,8 +24,8 @@ I consider him honest.
 She looks very beautiful.
 She ate 3 sheep.
 Sam spent fourty dollars.
-Sam spent $40it.
-SAm, my brother, arrived.
+Sam spent $40.
+Sam, my brother, arrived.
 The Australian Broadcasting Corporation.
 Give the toys to the children.
 I saw a cat in a hat.
@@ -38,7 +38,7 @@ Sam took out a 3 million dollar loan.
 Sam took out a $3 million loan.
 We can go somewhere nice.
 The man is here.
-Whichh book do you prefer?
+Which book do you prefer?
 You've all won!
 All the boys are here.
 I saw the man you love.
@@ -76,14 +76,11 @@ He's crying whether or not you feel bad about it.
 This restaurant is pretty cheap with good food, not to mention their friendly staff.
 He couldn't handle being hurt, let alone hurt by you.
 John has all but left.
-How come John left early?
 You had better apologize.
 Get out of there!
 Get off of that!
 Dogs are the best animal by far.
-What about John?
 I don't like her at all.
-What if John left early?
 They come here without legal permission.
 Guys, take it easy!
 Reagan has died.
@@ -103,7 +100,8 @@ Here are some bags.
 There's a cow in the field.
 Forces engaged in fighting after insurgents attacked.
 He says that you like to swim.
-I tried to finish it.We have no useful information on whether users are at risk.
+I tried to finish it.
+We have no useful information on whether users are at risk.
 Go home!
 Bill is big and honest.
 Both the boys and the girls are here.

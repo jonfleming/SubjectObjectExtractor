@@ -27,12 +27,13 @@ class SubjectObjectExtractor(object):
             right_children = {child.lower_ for child in right_dependencies}
             if 'and' in right_children:
                 dependency = self.first([child for child in right_dependencies if child.dep_ in labels or child.pos_ == 'NOUN'])
-                if hasattr(noun, 'preposition'):
-                    phrase = Phrase(noun.preposition.text + ' ' + dependency.text)
-                else:
-                    phrase = PossPhrase(dependency)
-                
-                more_nouns.extend([phrase])
+                if dependency:
+                    if hasattr(noun, 'preposition'):
+                        phrase = Phrase(noun.preposition.text + ' ' + dependency.text)
+                    else:
+                        phrase = PossPhrase(dependency)
+                    
+                    more_nouns.extend([phrase])
         return more_nouns
 
     def get_objects_from_conjunctive_verb(self, verbs):
@@ -74,10 +75,20 @@ class SubjectObjectExtractor(object):
     def get_objects_from_prepositions(self, dependencies):
         objects = []
         for dependency in dependencies:
-            if dependency.pos_ == 'ADP' and dependency.dep_ == 'prep':
+            if dependency.pos_ == 'ADP':
                 pobj = self.first([token for token in dependency.rights if token.dep_  in OBJECTS or (token.pos_ == 'PRON' and token.lower_ == 'me')])
                 if pobj is not None:
                     obj = PrepPhrase(dependency, pobj)
+                    objects.extend([obj])
+        return objects
+
+    def get_object_from_verb_phrase(self, dependencies):
+        objects = []
+        for dependency in dependencies:
+            if dependency.pos_ == 'VERB':
+                prep = self.first([token for token in dependency.lefts if token.pos_ == 'PART'])
+                if prep is not None:
+                    obj = PrepPhrase(prep, dependency)
                     objects.extend([obj])
         return objects
 
@@ -139,6 +150,7 @@ class SubjectObjectExtractor(object):
             objects.extend(adjectives)
 
         objects.extend(self.get_objects_from_prepositions(right_children))
+        objects.extend(self.get_object_from_verb_phrase(right_children))
         new_object = self.get_object_phrase_from_xcomp(right_children)
 
         if new_object:
